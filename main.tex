@@ -70,7 +70,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{Data Version Control: Open source software for versioning and sharing machine learning projects}
+\title{Data Version Control: A Data Management Model for Machine Learning Projects}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -112,8 +112,7 @@
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 \begin{abstract}
- This will be the abstract. Will summarize DVC and the principals
- explored herein.
+    Managing datasets, model files, and other artifacts of machine learning projects is a consistent challenge for teams across scientific and industrial disciplines. In particular, maintaining the provenance of these artifacts often poses significant infrastructure hurdles due to file sizes and complex dependencies. Here, we present an open source software tool, Data Version Control, for managing data and modeling experiments in end-to-end machine learning projects, as well as the data management model behind the tool. This model provides abstraction from physical storage, support the heterogeneous languages used across teams, extend version control principles from software engineering to machine learning, and integrate simply with existing engineering practices. 
 \end{abstract}
 
 %%
@@ -143,25 +142,31 @@
 \maketitle
 
 \section{Introduction}
-Maintaining the \textit{provenance} of objects--the history of ownership and modification, as well as how the object was derived--is of paramount importance to designing digital systems for scientific reproducibility \cite{Muniswamy-Reddy2006Provenance-awareSystems}. Furthermore, there is growing consensus that auditable and transparent records of scientific projects and their artifacts, such as datasets used to train models \cite{GebruDatasheetsDatasets}, will be required for ethical and fair machine learning practices. 
+Maintaining the \textit{provenance} of objects--the history of ownership and modification, as well as how the object was derived--is of paramount importance to designing digital systems for scientific reproducibility \cite{Muniswamy-Reddy2006Provenance-awareSystems,Davidson2008ProvenanceOpportunities,NationalAcademiesofSciences2019ReproducibilityScience}. Furthermore, there is growing consensus that auditable and transparent records of scientific projects and their artifacts, such as datasets used to train models \cite{GebruDatasheetsDatasets}, will be required for ethical and fair machine learning practices. 
 
 Yet architecting systems that maintain provenance has proved challenging for projects involving large datasets, a situation that is increasingly common throughout the sciences and applied engineering domains. Efficient systems for tracking evolving datasets and scientific workflows has been a topic of research for many years \cite{Davidson2007ProvenanceSystems.,Azsoyoglu1995TemporalSurvey,Salzberg1999ComparisonData,Bhattacherjee2015PrinciplesTradeoff}. Today, as machine learning proliferates, the matter has increased in both urgency and complexity: in a recent organization-wide survey of data science and machine learning practitioners, \citet{Amershi2019SoftwareStudy} reported that data management was generally ranked as the greatest technical challenge regardless of the practitioner's experience and training. There are likely several reasons for this. 
 
-First, datasets may be larger than ever before (frequently on the terabyte and petabyte scale) and therefore frequently cannot be versioned in the same way as source code \cite{Bhattacherjee2015PrinciplesTradeoff}. Organizations may have thousands, millions, or even billions of datasets internally, which are shared across teams for various purposes \cite{Halevy2016Goods:Datasets}. For each application, datasets may be transformed in new ways, potentially creating a multitude of related by distinct versions of a dataset within an organization.  Compounding this complexity, modern data-driven projects typically involve a long experimentation stage in which users may iterate over many machine learning model architectures and hyperparameters to optimize for a given metric. The resulting models have complex dependencies with both their source code and training dataset (\citet{Amershi2019SoftwareStudy} call this "complex component entanglement"). 
+Perhaps the most obvious is that datasets are larger than ever before and frequently cannot be versioned in the same way as source code \cite{Bhattacherjee2015PrinciplesTradeoff}. Organizations may have thousands, millions, or even billions of datasets internally, which are shared across teams for various purposes \cite{Halevy2016Goods:Datasets}. For each application, datasets may be transformed in new ways, potentially creating a multitude of related by distinct versions of a dataset within an organization.  Compounding this complexity, modern data-driven projects typically involve a long experimentation stage in which users may iterate over many machine learning model architectures and hyperparameters to optimize for a given metric. The resulting models have complex dependencies with both their source code and training dataset (\citet{Amershi2019SoftwareStudy} call this "complex component entanglement"). 
 
 Researchers have identified several priorities for improving data management practices. First, \citet{Schelter2018OnManagement} contend that \textit{data independence}, or abstraction from physical storage \cite{Tsatalos1996TheIndependence}, is a necessary step towards reducing the number of parts in a machine learning pipeline that must be explicitly "glued together". Secondly, the authors also highlight the heterogeneity of code-bases in machine learning: languages and libraries built around relational algebra may be used to query and load datasets, whereas feature transformations are frequently executed via MapReduce-like transforms. Model training may rely on yet other libraries and even hardware, in the case of deep learning. Thus, it is of considerable interest to develop tools for data and experiment management that are language- and library-agnostic. 
 
-Thirdly, it is also desirable that when meta-data about experiments and datasets is tracked, it is not stored in a separate database but maintained with projects artifacts themselves. As \citet{Muniswamy-Reddy2006Provenance-awareSystems} argues, maintaining distinct logs of metadata in a standalone system introduces the need to enforce consistency and maintain another database. A related issue in machine learning experimentation is that practitioners frequently use file-naming conventions or directory structure to track parallel experiments\cite{Gharibi2019AutomatedExperiments}. This creates introduces unnecessary complexity and overhead: version tracking could be automated if abstraction were used instead. 
+Thirdly, it is also desirable that when meta-data about experiments and datasets is tracked, it is not stored in a separate database but maintained with projects artifacts themselves. As \citet{Muniswamy-Reddy2006Provenance-awareSystems} argues, maintaining distinct logs of metadata in a standalone system introduces the need to enforce consistency and maintain another database. A related issue in machine learning experimentation is that practitioners frequently use file-naming conventions or directory structure to track parallel experiments\cite{Gharibi2019AutomatedExperiments}. This creates introduces unnecessary complexity and overhead: version tracking could be automated if abstraction were used instead. Extending version control principles from software engineering to datasets (and project artifacts that depend on datasets, like trained models) would also closely link these objects to records of their lineage. 
 
 A fourth priority is that such tools must be designed with minimal overhead to existing practices. Because of the broad variety in backgrounds and skill sets of individuals who work with machine learning pipelines \cite{Amershi2019SoftwareStudy,Halevy2016Goods:Datasets,Schelter2018OnManagement}, it will be imperative to design software that is integrated with existing standards and not overly-specific to a particular discipline (i.e., data science or systems engineering). 
 
+Today, tools for managing machine learning projects take many forms, ranging from systems custom-built within organizations \cite{Halevy2016Goods:Datasets} to public platforms for data and model sharing \cite{Bhardwaj2015DataHub:Scale,Gharibi2019ModelKB:Learning,Vartak2016ModelDB:Management,Miao2017ModelManagement}. However, solutions remain incomplete, and best practices are not yet agreed upon. 
 
-Here, we present our proposal and implementation for a system of tracking the provenance of machine learning projects, including source code, datasets, and trained binary model files, called Data Version Control (DVC). DVC is intended to meet the goals described here: abstraction from physical infrastructure, language agnosticism, [WHAT DO WE CALL THE QUALITY OF NOT NEEDING FILE SUFFIXES?], and integration with existing software engineering practices. Like the approach of \citet{Bhardwaj2015DataHub:Scale} (DATAHUB), a graph-based approach to provenance tracking is central to our design. Unlike DATAHUB, though, we build around an existing graph-based version control system, Git, to extend software engineering principles to data and machine learning experiment management. The main contributions of this work are a transition to \textit{codifying} artifacts like datasets and binary models so that they can be efficiently versioned. We also demonstrate our approach to data independence, which supports a range of physical storage types, and a design philosophy for iterating over machine learning experiments in parallel. 
-
+Here, we present our model for managing data- as well as objects that depend on data, such as trained models- in machine learning projects. Like the approach of \citet{Bhardwaj2015DataHub:Scale} (DATAHUB), a graph-based approach to provenance tracking is central to our model. Unlike DATAHUB, though, we build around an existing graph-based version control system, Git, to extend software engineering principles to data and machine learning experiment management. We also introduce our open source software, Data Version Control (DVC), that implements our data management model. 
 
 %% Is architecture the right term? Trying to give an overview of how DVC works.
 \section{The DVC data management model}
-\subsection{Data addressing and independence}
+
+As a model for data management, DVC is intended to provide abstraction from physical infrastructure, language agnosticism, version control, and integration with existing software engineering practice. In practice, our software maintains the provenance of end-to-end machine learning projects, including source code, datasets, and trained binary model files. 
+
+
+Our model applies to the development stage of machine learning projects, consisting of data management, data processing, and experimentation. We will summarize the core ideas of the data management model and corresponding software implementation in the following sections. 
+
+\subsection{Data addressing and independence}\label{dataindependence} 
 
 
 
@@ -195,8 +200,8 @@ Similar to a Git \verb|config| file, the DVC \verb|config| file stores the physi
 
 Consequently, DVC commands can reference the remote data storage by \verb|myremote| instead of its physical address. This abstraction allows the physical address to be changed at any time inside the \verb|config| file without requiring modifications to source code.
 
-\subsubsection{Data as code} 
-DVC \textit{codifies} project artifacts such as model files and data, meaning that DVC creates meta-files (\verb|.dvc| files) representing indirect pointers to artifacts in storage. Consider the scenario in Figure~\ref{fig:fig1}, in which a user has trained a model and their local workspace now contains a 3 GB file (\verb|model.pkl|) that cannot be pushed to their GitHub repository due to size restrictions. After bringing this file under DVC's purview (\verb|dvc add model.pkl|), the file \verb|model.pkl.dvc| is created containing the following:
+\subsubsection{Data and models as code} 
+DVC \textit{codifies} project artifacts such as data and model files, meaning that DVC creates meta-files (\verb|.dvc| files) representing indirect pointers to artifacts in storage. Consider the scenario in Figure~\ref{fig:fig1}, in which a user has trained a model and their local workspace now contains a 3 GB file (\verb|model.pkl|) that cannot be pushed to their GitHub repository due to size restrictions. After bringing this file under DVC's purview (\verb|dvc add model.pkl|), the file \verb|model.pkl.dvc| is created containing the following:
 
 \begin{verbatim}
     md5: 25de4bf3bb47f28f7671627d4fd22a1b
@@ -208,28 +213,56 @@ DVC \textit{codifies} project artifacts such as model files and data, meaning th
       persist: false
 \end{verbatim}
 
-This file specifies indirect pointers to the storage location of \verb|model.pkl| that, used in conjunction with the contents of the \verb|config| file, provides a full pointer to the target. The 
+This file specifies indirect pointers to the storage location of \verb|model.pkl| that, used in conjunction with the contents of the \verb|config| file, provides a full pointer to the target. The \verb|.dvc| file can be versioned with Git like source code, and the target pushed to the remote data repository specified in \verb|config|. In this way, any artifact of a machine learning project can be versioned while large file contents (and their previous versions) are stored in the remote storage infrastructure of the user's choosing. 
+
+\subsection{Versioning data} \label{version}
+At this point, it is hopefully clear that DVC is not itself a version control system: Git versions \verb|.dvc| files, which provide pointers to objects in remote storage. DVC-managed projects can be cloned and copied as any other Git repository, allowing for distributed work on multiple branches that each read files from the remote data repository. 
+
+A Git workspace may contain multiple \verb|.dvc| files corresponding to multiple project artifacts. For example, a workspace may contain a \verb|.dvc| file that points to a raw dataset, another that points to a processed dataset, and a third that points to a model binary. 
+
+\subsection{Transferring data} \label{transfer}
+Like Git, DVC only transfers data between the local workspace and the remote data repository when explicitly requested (commands include \verb|dvc pull|,\verb|dvc push|, and \verb|dvc fetch|). Granularity at the file-level is supported, in that a user may pull only a particular \verb|.dvc| file's target to their local workspace. In the example of a workspace containing \verb|.dvc| files for a raw dataset, a processed dataset, and a model binary, the user may elect to download only the model binary.
+
+Access to previous versions of DVC-managed files is accomplished in two steps: Git is used to checkout a previous commit of a \verb|.dvc| file, and then the user can \verb|dvc pull| the targeted version from remote data storage. 
+
+\subsection{Data operations optimization} \label{optimize}
+The core DVC codebase is optimized for machine learning projects in several ways:
+\begin{itemize}
+    \item \textit{Download optimization.} DVC maintains a local cache to prevent repeated downloads of identical file versions.
+    \item \textit{Local cache optimization.} The garbage collector command \verb|dvc gc| was developed to avoid cache overflow.
+    \item \textit{Computational optimization.} DVC checks data consistency by calculating hashes for each managed file, but avoids recalculating hashes on files whose timestamps have not changed.
+    \item \textit{Local copy optimization.} While reconstructing a workspace, DVC utilizes reflinks, hardlinks and symlinks to avoid copying files from cache to the workspace whenever possible. 
+\end{itemize}
 
 
-The resulting \verb|.dvc| file is versioned by Git exactly as source code. When the user is ready to sync with remote repositories, they will \verb|git commit| and \verb|git push| to remote code storage (such as their GitHub repository). Any \verb|.dvc| files will be synced with remote code storage, but not their corresponding targets (in Figure~\ref{fig:fig1}, \verb|model.pkl.dvc| is synced with remote code storage, but not \verb|model.pkl|.) Lastly, users run \verb|dvc push|, an analogue to \verb|git push|, to copies the contents of \verb|.dvc/cache| to remote data storage (if they are not already present). 
+\subsection{Machine learning pipelines} \label{pipeline}
+It is typical for source code and machine learning project artifacts to be related by a pipeline, which may begin with raw data, exert some transforms, specify a model, and end with a trained model eligible for deployment. DVC formalizes pipelines by creating directed acyclic graphs (DAGs) of source code, where explicitly specified dependency and output files are the edges of the DAG. Nodes in the DAG are commands, which can be written in any language (i.e., \verb|python train_classifier.py|).  
 
-In this way, any artifact of a machine learning project can be versioned with Git while large file contents (and their previous versions) are stored in the remote storage infrastructure of the user's choosing. 
+Pipelines are represented as \verb|.dvc| files and versioned exactly as \verb|.dvc| files corresponding to project artifacts; however, the pipeline \verb|.dvc| file contains pointers not only to objects but to the dependencies and commands required to reproduce them. 
 
-\subsection{Pipelines}
-
-
-Reproducible pipelines, which include the scripts to preprocess data and carry out classification. Versioning a pipeline may in some cases be more efficient than storing various transformed versions of datasets. 
-
+DVC pipelines are language and library agnostic. They support both local and remote computing and storage. So far, users have applied pipelines for local data processing, local model training, remote MapReduce jobs, and distributed Dask applications. 
 
 \section{Research directions}
 Currently, DVC provides only raw data management and versioning capabilities: it does not distinguish raw datasets from processed datasets from model binaries, and so does not take advantage of higher levels of abstraction (i.e., dataframes) common in machine learning projects. There is growing interest in new tools to store high-level data objects to data catalogs, feature stores, and model zoos, and future research will investigate how DVC can provide a foundation for these efforts. 
 
 Because DVC is built for efficient transfer of large files between distributed work stations, we expect it will be suitable for various automation scenarios--most commonly, continuous integragtion/continuous deployment (CI/CD). Traditional CI/CD systems are based on code versioning tools, such as Git, and provide the capability to build software artifacts such as executable binary files from source code. In theory, DVC could facilitate dataset transfer in a CI/CD system for automating the training, selection, and deployment of machine learning models. 
 
-Finally, DVC imposes the GitFlow structure on project development: modifications to project components are organized in a graph structure, with Git branches supporting parallel development tracks. This model  software engineering projects where linear structure of code changes does not lead to a complicated graph. A usually project contains only a single branch (usually names master) and a few more temporary feature branches. Branch from feature branches is not a very usual thing in software project. 3rd order branch are really happening. In ML project the structure might be much more complicated due to the trial and error nature of the ML process. A new types of human integration interfaces are needed to simplify the experience.
+Finally, DVC imposes GitFlow structure on project development: commits are organized in a graph structure, with Git branches supporting parallel development tracks. This model has enjoyed great success in software engineering projects, where code changes frequently proceed in a roughly linear manner (a typical project contains a main branch with a few temporary feature branches). Branches from feature branches (3\textsuperscript{rd} order branches) are rare, in our experience. However, the trial-and-error nature of the machine learning modeling process may considerably complicate the graphical structure. We intend to explore the user interfaces that are required to simplify the experience of developing and comparing multiple concurrent experiments.
 
 \section{Conclusions}
-We have shown how DVC works.
+In this report, we have described four desirable features for tools to manage end-to-end machine learning projects and detailed our model for meeting these challenges in an open-source software library:
+
+\begin{itemize}
+    \item \textit{Data independence.} DVC abstracts away the physical address of data storage with pointers managed by meta-files (Section \ref{dataindependence}). 
+    \item \textit{Language agnosticism.} DVC is language agnostic and does not restrict the software that can be executed in pipelines (Section \ref{pipeline}). 
+    \item \textit{Version controlled}. DVC extends the principles of Git version control to datasets and other project artifacts. It facilitates cloning, branching, and reverting to previous versions (Sections \ref{version} \& \ref{transfer}) and is optimized for the particulars of machine learning projects (Section \ref{optimize}).
+    \item \textit{Reduced overhead to existing practices.} Because DVC is a library that extends, rather than reinvents, a widespread system for version control, we are hopeful for straightforward integration into existing development workflows.
+
+[KILLER LAST SENTENCE GOES HERE]
+
+\end{itemize}
+    
+    
 
 
 
@@ -238,6 +271,18 @@ We have shown how DVC works.
 %% The next two lines define the bibliography style to be used, and
 %% the bibliography file.
 \bibliographystyle{ACM-Reference-Format}
-\bibliography{references}
+\bibliography{myrefs}
 
 \end{document}
+
+
+assumptinos:
+
+local space limited (garbage collector)
+don't want to download anything we don't need (local cache)
+some files bigger than VCS can handle
+scalable external storage. may change
+DAG 
+want to be able to represent with a graph
+
+
